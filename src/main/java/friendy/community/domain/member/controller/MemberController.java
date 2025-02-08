@@ -2,13 +2,13 @@ package friendy.community.domain.member.controller;
 
 import friendy.community.domain.member.dto.request.PasswordRequest;
 import friendy.community.domain.member.dto.request.MemberSignUpRequest;
+import friendy.community.domain.member.dto.response.FindMemberResponse;
 import friendy.community.domain.member.service.MemberService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
@@ -31,4 +31,13 @@ public class MemberController implements SpringDocMemberController{
 
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/member/{memberId}")
+    public ResponseEntity<FindMemberResponse> findMember(
+            HttpServletRequest httpServletRequest,
+            @PathVariable Long memberId
+    ) {
+        return ResponseEntity.ok(memberService.getMember(httpServletRequest, memberId));
+    }
+
 }

@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import friendy.community.domain.auth.service.AuthService;
 import friendy.community.domain.member.dto.request.MemberSignUpRequest;
 import friendy.community.domain.member.dto.request.PasswordRequest;
+import friendy.community.domain.member.dto.response.FindMemberResponse;
 import friendy.community.domain.member.service.MemberService;
 import friendy.community.global.exception.ErrorCode;
 import friendy.community.global.exception.FriendyException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,6 +16,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,12 +24,13 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = MemberController.class)
 class MemberControllerTest {
@@ -275,4 +279,51 @@ class MemberControllerTest {
                         assertThat(result.getResolvedException().getMessage())
                                 .contains("해당 이메일의 회원이 존재하지 않습니다."));
     }
+
+    @Test
+    @DisplayName("회원 정보 조회 성공 시 200 OK와 회원 정보를 반환한다")
+    void findMemberSuccessfullyReturns200Ok() throws Exception {
+        // Given
+        Long memberId = 1L;
+        HttpServletRequest request = new MockHttpServletRequest();
+
+        FindMemberResponse response = new FindMemberResponse(
+                true, 1L, "example@friendy.com", "bokSungKim", LocalDate.parse("2002-08-13")
+        );
+
+        when(memberService.getMember(any(HttpServletRequest.class), eq(memberId)))
+                .thenReturn(response);
+
+        // When & Then
+        mockMvc.perform(get("/member/{memberId}", memberId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.email").value("example@friendy.com"))
+                .andExpect(jsonPath("$.nickname").value("bokSungKim"))
+                .andExpect(jsonPath("$.birthDate").value("2002-08-13"))
+                .andExpect(jsonPath("$.me").value(true));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 회원 조회 시 404 Not Found를 반환한다")
+    void findMemberWithNonExistentIdReturns404NotFound() throws Exception {
+        // Given
+        Long nonExistentMemberId = 999L;
+        HttpServletRequest request = new MockHttpServletRequest();
+
+        when(memberService.getMember(any(HttpServletRequest.class), eq(nonExistentMemberId)))
+                .thenThrow(new FriendyException(ErrorCode.RESOURCE_NOT_FOUND, "존재하지 않는 회원입니다."));
+
+        // When & Then
+        mockMvc.perform(get("/member/{memberId}", nonExistentMemberId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
+                .andExpect(status().isNotFound())
+                .andExpect(result ->
+                        assertThat(result.getResolvedException().getMessage())
+                                .contains("존재하지 않는 회원입니다."));
+    }
+
 }

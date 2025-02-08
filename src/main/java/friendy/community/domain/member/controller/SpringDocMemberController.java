@@ -1,18 +1,17 @@
 package friendy.community.domain.member.controller;
 
-import friendy.community.domain.member.dto.request.PasswordRequest;
 import friendy.community.domain.member.dto.request.MemberSignUpRequest;
+import friendy.community.domain.member.dto.request.PasswordRequest;
+import friendy.community.domain.member.dto.response.FindMemberResponse;
 import friendy.community.global.swagger.error.ApiErrorResponse;
 import friendy.community.global.swagger.error.ErrorCase;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.headers.Header;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @Tag(name = "회원 API", description = "회원 API")
 public interface SpringDocMemberController {
@@ -40,4 +39,15 @@ public interface SpringDocMemberController {
             @ErrorCase(description = "이메일 불일치", exampleMessage = "해당 이메일의 회원이 존재하지 않습니다.")
     })
     ResponseEntity<Void> password(PasswordRequest passwordRequest);
+
+    @Operation(summary = "프로필 조회")
+    @ApiResponse(responseCode = "200", description = "프로필 조회 성공")
+    @ApiErrorResponse(status = HttpStatus.NOT_FOUND, instance = "/member/{memberId}", errorCases = {
+            @ErrorCase(description = "존재하지 않는 회원", exampleMessage = "존재하지 않는 회원입니다.")
+    })
+    ResponseEntity<FindMemberResponse> findMember(
+            HttpServletRequest httpServletRequest,
+            @PathVariable Long memberId
+    );
+
 }

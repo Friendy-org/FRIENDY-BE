@@ -3,6 +3,7 @@ package friendy.community.domain.member.service;
 import friendy.community.domain.auth.service.AuthService;
 import friendy.community.domain.member.dto.request.MemberSignUpRequest;
 import friendy.community.domain.member.dto.request.PasswordRequest;
+import friendy.community.domain.member.dto.response.FindMemberResponse;
 import friendy.community.domain.member.fixture.MemberFixture;
 import friendy.community.domain.member.model.Member;
 import friendy.community.domain.member.repository.MemberRepository;
@@ -13,12 +14,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.annotation.DirtiesContext;
 
 import java.util.Optional;
 
+import static friendy.community.domain.auth.fixtures.TokenFixtures.CORRECT_ACCESS_TOKEN;
+import static friendy.community.domain.auth.fixtures.TokenFixtures.OTHER_USER_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @Transactional
@@ -104,4 +109,74 @@ class MemberServiceTest {
                 .isInstanceOf(FriendyException.class)
                 .hasMessageContaining("해당 이메일의 회원이 존재하지 않습니다.");
     }
+
+    @Test
+    @DisplayName("회원 조회 요청이 성공하면 FindMemberResponse를 반환한다")
+    void getMemberSuccessfullyReturnsFindMemberResponse() {
+        // Given
+        MockHttpServletRequest httpServletRequest = new MockHttpServletRequest();
+        httpServletRequest.addHeader("Authorization", CORRECT_ACCESS_TOKEN);
+        Member savedMember = memberRepository.save(MemberFixture.memberFixture());
+        Long memberId = savedMember.getId();
+
+        // When
+        FindMemberResponse response = memberService.getMember(httpServletRequest, memberId);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(memberId);
+        assertThat(response.email()).isEqualTo(savedMember.getEmail());
+        assertThat(response.nickname()).isEqualTo(savedMember.getNickname());
+        assertThat(response.birthDate()).isEqualTo(savedMember.getBirthDate());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 회원을 조회하면 예외를 던진다")
+    void throwsExceptionWhenMemberNotFound() {
+        // Given
+        MockHttpServletRequest httpServletRequest = new MockHttpServletRequest();
+        httpServletRequest.addHeader("Authorization", CORRECT_ACCESS_TOKEN);
+        Long nonExistentMemberId = 999L;
+
+        // When & Then
+        assertThatThrownBy(() -> memberService.getMember(httpServletRequest, nonExistentMemberId))
+                .isInstanceOf(FriendyException.class)
+                .hasMessageContaining("존재하지 않는 회원입니다.")
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("현재 로그인된 사용자와 조회하는 사용자가 같으면 isMe가 true를 반환한다")
+    void getMemberIdentifiesCurrentUserCorrectly() {
+        // Given
+        MockHttpServletRequest httpServletRequest = new MockHttpServletRequest();
+        httpServletRequest.addHeader("Authorization", CORRECT_ACCESS_TOKEN);
+        Member savedMember = memberRepository.save(MemberFixture.memberFixture());
+
+        // When
+        FindMemberResponse response = memberService.getMember(httpServletRequest, savedMember.getId());
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(savedMember.getId());
+        assertThat(response.me()).isTrue();
+    }
+
+    @Test
+    @DisplayName("현재 로그인된 사용자와 조회하는 사용자가 다르면 isMe가 false를 반환한다")
+    void getMemberIdentifiesDifferentUserCorrectly() {
+        // Given
+        MockHttpServletRequest httpServletRequest = new MockHttpServletRequest();
+        httpServletRequest.addHeader("Authorization", OTHER_USER_TOKEN);
+        Member savedMember = memberRepository.save(MemberFixture.memberFixture());
+
+        // When
+        FindMemberResponse response = memberService.getMember(httpServletRequest, savedMember.getId());
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.id()).isEqualTo(savedMember.getId());
+        assertThat(response.me()).isFalse();
+    }
+
 }
